@@ -1,0 +1,25 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.idea/
+.vscode/
+*.iml
+*.iws
+.metadata
+
+# Android (flutter create로 자동 생성되는 파일들 무시)
+android/.gradle/
+android/local.properties
+android/key.properties
+android/app/release/
+**/*.keystore
+**/*.jks
+
+# OS
+.DS_Store
+Thumbs.db
