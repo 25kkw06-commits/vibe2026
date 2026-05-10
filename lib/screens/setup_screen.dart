@@ -24,6 +24,7 @@ class _SetupScreenState extends State<SetupScreen> {
   bool _hasPermission = false;
   bool _loading = true;
   List<AppLimit> _limits = [];
+  Species _species = Species.dog;
 
   @override
   void initState() {
@@ -128,7 +129,7 @@ class _SetupScreenState extends State<SetupScreen> {
     if (ok != true) return;
 
     final name = _nameCtrl.text.trim().isEmpty ? '미미' : _nameCtrl.text.trim();
-    final tama = Tamagotchi.newborn(name: name);
+    final tama = Tamagotchi.newborn(name: name, species: _species);
     await _storage.saveTamagotchi(tama);
     await _storage.setSetupComplete(true);
 
@@ -204,81 +205,117 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget _setupBody() {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-          child: TextField(
-            controller: _nameCtrl,
-            decoration: InputDecoration(
-              labelText: '다마고치 이름',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              isDense: true,
-            ),
-            maxLength: 12,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '추적할 앱과 시간',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ),
-        ),
         Expanded(
-          child: _limits.isEmpty
-              ? Center(
-                  child: Text(
-                    '아래 + 버튼으로 앱을 추가하세요',
-                    style:
-                        TextStyle(color: Colors.grey.shade500, fontSize: 13),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionLabel('이름'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameCtrl,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    isDense: true,
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _limits.length,
-                  separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Colors.grey.shade200),
-                  itemBuilder: (_, i) {
-                    final l = _limits[i];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        l.appName,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      subtitle: Text(
-                        '${l.limitMinutes}분 / 일',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                  maxLength: 12,
+                ),
+                const SizedBox(height: 4),
+                _sectionLabel('종류'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    for (final s in Species.values) ...[
+                      Expanded(
+                        child: _SpeciesCard(
+                          species: s,
+                          selected: _species == s,
+                          onTap: () => setState(() => _species = s),
                         ),
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 20),
-                            color: Colors.grey.shade700,
-                            onPressed: () => _edit(l),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close, size: 20),
-                            color: Colors.grey.shade500,
-                            onPressed: () => _remove(l),
+                      if (s != Species.values.last) const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _sectionLabel('추적할 앱과 시간'),
+                const SizedBox(height: 8),
+                if (_limits.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 28),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey.shade300,
+                        style: BorderStyle.solid,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '아래 + 버튼으로 앱을 추가하세요',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < _limits.length; i++) ...[
+                          if (i > 0)
+                            Divider(
+                              height: 1,
+                              color: Colors.grey.shade200,
+                            ),
+                          ListTile(
+                            dense: true,
+                            title: Text(
+                              _limits[i].appName,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            subtitle: Text(
+                              '${_limits[i].limitMinutes}분 / 일',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
+                                  color: Colors.grey.shade700,
+                                  onPressed: () => _edit(_limits[i]),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18),
+                                  color: Colors.grey.shade500,
+                                  onPressed: () => _remove(_limits[i]),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.all(16),
@@ -310,6 +347,67 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _sectionLabel(String text) => Text(
+        text,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade800,
+        ),
+      );
+}
+
+class _SpeciesCard extends StatelessWidget {
+  final Species species;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SpeciesCard({
+    required this.species,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected ? Colors.black87 : Colors.grey.shade300;
+    final bg = selected ? Colors.grey.shade50 : Colors.white;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: bg,
+          border: Border.all(
+            color: borderColor,
+            width: selected ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Image.asset(
+              'assets/sprites/${species.name}/0.png',
+              width: 56,
+              height: 56,
+              filterQuality: FilterQuality.none,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              species.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: selected ? Colors.black87 : Colors.grey.shade700,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,17 +1,35 @@
 import 'dart:convert';
 
+enum Species {
+  dog('강아지'),
+  cat('고양이'),
+  chicken('병아리');
+
+  final String label;
+  const Species(this.label);
+
+  static Species fromName(String? name) {
+    if (name == null) return Species.dog;
+    return Species.values.firstWhere(
+      (e) => e.name == name,
+      orElse: () => Species.dog,
+    );
+  }
+}
+
 class Tamagotchi {
   final String name;
+  final Species species;
   final DateTime bornAt;
   final int hunger;        // 0=포만, 100=굶주림
   final int cleanliness;   // 0=더러움, 100=깨끗
   final int happiness;     // 0=우울, 100=행복
-  final int sicknessCount; // 누적 병든 횟수 (3이면 사망)
-  final bool isSick;       // 현재 병중 여부
+  final int sicknessCount;
+  final bool isSick;
   final bool isAlive;
-  final int medicineCount; // 치료제 개수
+  final int medicineCount;
   final DateTime lastDecayAt;
-  final String lastEvaluatedDate; // YYYY-MM-DD, 마지막 평가일
+  final String lastEvaluatedDate;
   final List<String> exceededTodayPackages;
   final DateTime? lastFedAt;
   final DateTime? lastBathedAt;
@@ -19,6 +37,7 @@ class Tamagotchi {
 
   const Tamagotchi({
     required this.name,
+    required this.species,
     required this.bornAt,
     required this.hunger,
     required this.cleanliness,
@@ -35,10 +54,14 @@ class Tamagotchi {
     this.lastPlayedAt,
   });
 
-  factory Tamagotchi.newborn({String name = '미미'}) {
+  factory Tamagotchi.newborn({
+    String name = '미미',
+    Species species = Species.dog,
+  }) {
     final now = DateTime.now();
     return Tamagotchi(
       name: name,
+      species: species,
       bornAt: now,
       hunger: 30,
       cleanliness: 80,
@@ -60,19 +83,16 @@ class Tamagotchi {
     return ((h + cleanliness + happiness) / 3).round();
   }
 
-  /// 캐릭터 이모지 — 다마고치의 시각적 핵심이라 유지.
-  String get displayEmoji {
-    if (!isAlive) return '💤';
-    if (isSick) return '🤒';
-    if (hunger > 85) return '😩';
-    if (cleanliness < 20) return '🫥';
-    if (happiness < 20) return '😢';
-    if (ageDays < 1) return '🥚';
-    if (ageDays < 3) return '🐣';
-    if (ageDays < 7) return '🐥';
-    if (ageDays < 21) return '🐤';
-    return '🐔';
+  /// 스프라이트 단계 인덱스 (0=알, 1=아기, 2=청소년, 3=어른)
+  int get stageIndex {
+    if (ageDays < 1) return 0;
+    if (ageDays < 7) return 1;
+    if (ageDays < 21) return 2;
+    return 3;
   }
+
+  /// 스프라이트 에셋 경로
+  String get spriteAsset => 'assets/sprites/${species.name}/$stageIndex.png';
 
   String get stageLabel {
     if (!isAlive) return '하늘나라';
@@ -83,8 +103,19 @@ class Tamagotchi {
     return '어른';
   }
 
+  /// 현재 부정적 상태 (sick/hungry/dirty/sad). 없으면 null.
+  String? get statusBadge {
+    if (!isAlive) return null;
+    if (isSick) return 'sick';
+    if (hunger > 85) return 'hungry';
+    if (cleanliness < 20) return 'dirty';
+    if (happiness < 20) return 'sad';
+    return null;
+  }
+
   Tamagotchi copyWith({
     String? name,
+    Species? species,
     DateTime? bornAt,
     int? hunger,
     int? cleanliness,
@@ -102,6 +133,7 @@ class Tamagotchi {
   }) {
     return Tamagotchi(
       name: name ?? this.name,
+      species: species ?? this.species,
       bornAt: bornAt ?? this.bornAt,
       hunger: (hunger ?? this.hunger).clamp(0, 100),
       cleanliness: (cleanliness ?? this.cleanliness).clamp(0, 100),
@@ -122,6 +154,7 @@ class Tamagotchi {
 
   Map<String, dynamic> toMap() => {
         'name': name,
+        'species': species.name,
         'bornAt': bornAt.toIso8601String(),
         'hunger': hunger,
         'cleanliness': cleanliness,
@@ -140,6 +173,7 @@ class Tamagotchi {
 
   factory Tamagotchi.fromMap(Map<String, dynamic> m) => Tamagotchi(
         name: m['name'] as String,
+        species: Species.fromName(m['species'] as String?),
         bornAt: DateTime.parse(m['bornAt'] as String),
         hunger: m['hunger'] as int,
         cleanliness: m['cleanliness'] as int,
