@@ -19,7 +19,7 @@ class _TamagotchiAvatarState extends State<TamagotchiAvatar>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1600),
     )..repeat(reverse: true);
   }
 
@@ -32,31 +32,19 @@ class _TamagotchiAvatarState extends State<TamagotchiAvatar>
   @override
   Widget build(BuildContext context) {
     final t = widget.tama;
-    final bg = !t.isAlive
-        ? Colors.grey.shade300
-        : t.isSick
-            ? Colors.red.shade50
-            : Colors.indigo.shade50;
-
     return Container(
       width: widget.size + 40,
       height: widget.size + 40,
       decoration: BoxDecoration(
-        color: bg,
+        color: t.isAlive ? Colors.grey.shade50 : Colors.grey.shade100,
         shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Center(
         child: AnimatedBuilder(
           animation: _ctrl,
           builder: (_, __) {
-            final dy = t.isAlive ? -6 * _ctrl.value : 0.0;
+            final dy = t.isAlive ? -4 * _ctrl.value : 0.0;
             return Transform.translate(
               offset: Offset(0, dy),
               child: Text(

@@ -12,7 +12,10 @@ class Tamagotchi {
   final int medicineCount; // 치료제 개수
   final DateTime lastDecayAt;
   final String lastEvaluatedDate; // YYYY-MM-DD, 마지막 평가일
-  final List<String> exceededTodayPackages; // 오늘 이미 한도 초과 처리한 패키지
+  final List<String> exceededTodayPackages;
+  final DateTime? lastFedAt;
+  final DateTime? lastBathedAt;
+  final DateTime? lastPlayedAt;
 
   const Tamagotchi({
     required this.name,
@@ -27,6 +30,9 @@ class Tamagotchi {
     required this.lastDecayAt,
     required this.lastEvaluatedDate,
     required this.exceededTodayPackages,
+    this.lastFedAt,
+    this.lastBathedAt,
+    this.lastPlayedAt,
   });
 
   factory Tamagotchi.newborn({String name = '미미'}) {
@@ -49,18 +55,17 @@ class Tamagotchi {
 
   int get ageDays => DateTime.now().difference(bornAt).inDays;
 
-  /// 0~100 종합 컨디션
   int get overallMood {
     final h = 100 - hunger;
     return ((h + cleanliness + happiness) / 3).round();
   }
 
-  /// 캐릭터 이모지 — 상태 우선순위에 따라 결정
+  /// 캐릭터 이모지 — 다마고치의 시각적 핵심이라 유지.
   String get displayEmoji {
-    if (!isAlive) return '💀';
+    if (!isAlive) return '💤';
     if (isSick) return '🤒';
     if (hunger > 85) return '😩';
-    if (cleanliness < 20) return '🤢';
+    if (cleanliness < 20) return '🫥';
     if (happiness < 20) return '😢';
     if (ageDays < 1) return '🥚';
     if (ageDays < 3) return '🐣';
@@ -91,6 +96,9 @@ class Tamagotchi {
     DateTime? lastDecayAt,
     String? lastEvaluatedDate,
     List<String>? exceededTodayPackages,
+    DateTime? lastFedAt,
+    DateTime? lastBathedAt,
+    DateTime? lastPlayedAt,
   }) {
     return Tamagotchi(
       name: name ?? this.name,
@@ -106,6 +114,9 @@ class Tamagotchi {
       lastEvaluatedDate: lastEvaluatedDate ?? this.lastEvaluatedDate,
       exceededTodayPackages:
           exceededTodayPackages ?? this.exceededTodayPackages,
+      lastFedAt: lastFedAt ?? this.lastFedAt,
+      lastBathedAt: lastBathedAt ?? this.lastBathedAt,
+      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
     );
   }
 
@@ -122,6 +133,9 @@ class Tamagotchi {
         'lastDecayAt': lastDecayAt.toIso8601String(),
         'lastEvaluatedDate': lastEvaluatedDate,
         'exceededTodayPackages': exceededTodayPackages,
+        'lastFedAt': lastFedAt?.toIso8601String(),
+        'lastBathedAt': lastBathedAt?.toIso8601String(),
+        'lastPlayedAt': lastPlayedAt?.toIso8601String(),
       };
 
   factory Tamagotchi.fromMap(Map<String, dynamic> m) => Tamagotchi(
@@ -138,6 +152,15 @@ class Tamagotchi {
         lastEvaluatedDate: m['lastEvaluatedDate'] as String,
         exceededTodayPackages:
             (m['exceededTodayPackages'] as List).cast<String>(),
+        lastFedAt: m['lastFedAt'] != null
+            ? DateTime.parse(m['lastFedAt'] as String)
+            : null,
+        lastBathedAt: m['lastBathedAt'] != null
+            ? DateTime.parse(m['lastBathedAt'] as String)
+            : null,
+        lastPlayedAt: m['lastPlayedAt'] != null
+            ? DateTime.parse(m['lastPlayedAt'] as String)
+            : null,
       );
 
   String toJson() => json.encode(toMap());

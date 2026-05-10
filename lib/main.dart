@@ -23,10 +23,26 @@ class UsageTrackerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '다마고치 · 앱 사용시간',
+      title: '다마고치',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blueGrey,
+          brightness: Brightness.light,
+        ),
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: Colors.black87,
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         useMaterial3: true,
       ),
       home: const _RootDispatcher(),

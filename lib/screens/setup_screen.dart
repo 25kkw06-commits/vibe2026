@@ -108,18 +108,20 @@ class _SetupScreenState extends State<SetupScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('정말 시작할까요?'),
+        title: const Text('시작할까요?'),
         content: const Text(
           '게임이 시작되면 추적 앱과 시간을 변경할 수 없습니다.\n'
-          '다마고치가 죽어야만 다시 설정할 수 있어요.',
+          '다마고치가 죽어야 다시 설정할 수 있어요.',
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('시작')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('시작'),
+          ),
         ],
       ),
     );
@@ -155,30 +157,44 @@ class _SetupScreenState extends State<SetupScreen> {
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.lock_outline, size: 64, color: Colors.orange),
-          const SizedBox(height: 16),
-          const Text('사용 정보 접근 권한이 필요합니다',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          const Text(
-            '안드로이드 시스템 설정 > 사용 정보 접근에서\n이 앱을 허용해 주세요.',
+          Text(
+            '사용 정보 접근 권한이 필요합니다',
             textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '시스템 설정 > 사용 정보 접근에서 본 앱을 허용해 주세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
+          FilledButton(
             onPressed: () async {
               await _usage.requestPermission();
             },
-            icon: const Icon(Icons.settings),
-            label: const Text('설정 열기'),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text('설정 열기'),
+            ),
           ),
           const SizedBox(height: 8),
-          OutlinedButton.icon(
+          OutlinedButton(
             onPressed: _check,
-            icon: const Icon(Icons.refresh),
-            label: const Text('권한 확인'),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.grey.shade300),
+              foregroundColor: Colors.black87,
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text('권한 확인'),
+            ),
           ),
         ],
       ),
@@ -189,85 +205,105 @@ class _SetupScreenState extends State<SetupScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '다마고치 이름',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.pets),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              isDense: true,
             ),
             maxLength: 12,
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Text('추적할 앱과 시간',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Text(
+              '추적할 앱과 시간',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade800,
+              ),
+            ),
           ),
         ),
         Expanded(
           child: _limits.isEmpty
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.add_chart,
-                          size: 64, color: Colors.grey),
-                      const SizedBox(height: 12),
-                      const Text('+ 버튼으로 앱을 추가하세요',
-                          style: TextStyle(color: Colors.grey)),
-                    ],
+                  child: Text(
+                    '아래 + 버튼으로 앱을 추가하세요',
+                    style:
+                        TextStyle(color: Colors.grey.shade500, fontSize: 13),
                   ),
                 )
-              : ListView.builder(
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: _limits.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(height: 1, color: Colors.grey.shade200),
                   itemBuilder: (_, i) {
                     final l = _limits[i];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
-                      child: ListTile(
-                        title: Text(l.appName),
-                        subtitle: Text('${l.limitMinutes}분 / 일'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => _edit(l),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  size: 20, color: Colors.red),
-                              onPressed: () => _remove(l),
-                            ),
-                          ],
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        l.appName,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      subtitle: Text(
+                        '${l.limitMinutes}분 / 일',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
                         ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            color: Colors.grey.shade700,
+                            onPressed: () => _edit(l),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            color: Colors.grey.shade500,
+                            onPressed: () => _remove(l),
+                          ),
+                        ],
                       ),
                     );
                   },
                 ),
         ),
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _add,
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, size: 18),
                   label: const Text('앱 추가'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: Colors.grey.shade300),
+                    foregroundColor: Colors.black87,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: FilledButton.icon(
+                child: FilledButton(
                   onPressed: _limits.isEmpty ? null : _startGame,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('게임 시작'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('게임 시작'),
                 ),
               ),
             ],
