@@ -1,4 +1,5 @@
 # Flutter / Dart
+.flutter_sdk/
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies

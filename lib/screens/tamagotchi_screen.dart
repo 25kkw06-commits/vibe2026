@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 
 import '../models/app_limit.dart';
 import '../models/tamagotchi.dart';
+import '../services/daily_score_service.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 import '../services/tamagotchi_service.dart';
 import '../services/usage_service.dart';
 import '../widgets/stat_bar.dart';
 import '../widgets/tamagotchi_avatar.dart';
+import 'ranking_board_page.dart';
 import 'setup_intro_screen.dart';
 
 class TamagotchiScreen extends StatefulWidget {
@@ -29,6 +32,9 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
   Map<String, int> _usageMap = {};
   bool _loading = true;
   Timer? _timer;
+  int _avatarInteractTick = 0;
+  int _tabIndex = 0;
+  int _rankingKey = 0;
 
   @override
   void initState() {
@@ -59,9 +65,19 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
   Future<void> _refresh() async {
     var t = await _storage.loadTamagotchi();
     if (t == null) return;
+    final beforeDecay = t;
     t = _svc.applyDecay(t);
+    await NotificationService.notifyCareTransition(beforeDecay, t);
+    final beforeEval = t;
     t = await _svc.evaluateUsage(t);
+    await NotificationService.notifyCareTransition(beforeEval, t);
+    if (t.isAlive) {
+      await _svc.checkNotifyActionButtonsAvailable(_storage, t);
+    } else {
+      await _storage.saveActionEnabledSnap(false, false, false);
+    }
     await _storage.saveTamagotchi(t);
+    await DailyScoreService.recordSnapshot(_storage, t);
 
     final limits = await _storage.loadLimits();
     Map<String, int> usage = {};
@@ -91,7 +107,12 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
       return;
     }
     await _storage.saveTamagotchi(result.tama);
-    setState(() => _tama = result.tama);
+    await _svc.syncActionButtonSnapshot(_storage, result.tama);
+    await DailyScoreService.recordSnapshot(_storage, result.tama);
+    setState(() {
+      _tama = result.tama;
+      _avatarInteractTick++;
+    });
   }
 
   Future<void> _restart() async {
@@ -99,7 +120,7 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('새로 시작'),
-        content: const Text('현재 다마고치와 모든 설정이 사라집니다.'),
+        content: const Text('현재 타임고치와 모든 설정이 사라집니다.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -132,35 +153,74 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(t.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refresh,
-            tooltip: '새로고침',
-          ),
-        ],
+        title: Text(_tabIndex == 0 ? t.name : '기록'),
+        actions: _tabIndex == 0
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _refresh,
+                  tooltip: '새로고침',
+                ),
+              ]
+            : null,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _statusLine(t),
-              const SizedBox(height: 16),
-              Center(child: TamagotchiAvatar(tama: t)),
-              const SizedBox(height: 16),
-              Center(child: _moodLabel(t)),
-              const SizedBox(height: 24),
-              _statsCard(t),
-              const SizedBox(height: 12),
-              _actionsRow(t),
-              const SizedBox(height: 24),
-              _usagePanel(),
-            ],
-          ),
+        child: IndexedStack(
+          index: _tabIndex,
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _statusLine(t),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TamagotchiAvatar(
+                      tama: t,
+                      interactTick: _avatarInteractTick,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(child: _moodLabel(t)),
+                  const SizedBox(height: 24),
+                  _statsCard(t),
+                  const SizedBox(height: 12),
+                  _actionsRow(t),
+                  const SizedBox(height: 24),
+                  _usagePanel(),
+                ],
+              ),
+            ),
+            RankingBoardPage(
+              key: ValueKey(_rankingKey),
+              storage: _storage,
+            ),
+          ],
         ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        height: 56,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        selectedIndex: _tabIndex,
+        onDestinationSelected: (i) {
+          setState(() {
+            _tabIndex = i;
+            if (i == 1) _rankingKey++;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined, size: 20),
+            selectedIcon: Icon(Icons.home, size: 20),
+            label: '홈',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined, size: 20),
+            selectedIcon: Icon(Icons.bar_chart, size: 20),
+            label: '기록',
+          ),
+        ],
       ),
     );
   }
@@ -196,15 +256,15 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
     if (t.isSick) {
       text = '아파해요';
     } else if (t.hunger > 80) {
-      text = '배고파해요';
+      text = '배고픔';
     } else if (t.cleanliness < 25) {
-      text = '더러워요';
+      text = '더러움';
     } else if (t.happiness < 25) {
-      text = '심심해요';
+      text = '저조';
     } else if (t.overallMood > 80) {
-      text = '아주 좋아 보여요';
+      text = '양호';
     } else {
-      text = '평온해요';
+      text = '보통';
     }
     return Text(
       text,
@@ -323,7 +383,7 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
               Icon(icon, size: 22, color: fg),
               const SizedBox(height: 6),
               Text(
-                cooling ? '${cooldownMin}분' : label,
+                cooling ? '$cooldownMin분' : label,
                 style: TextStyle(
                   fontSize: 12,
                   color: fg,

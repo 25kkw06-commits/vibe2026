@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import 'screens/setup_intro_screen.dart';
 import 'screens/tamagotchi_screen.dart';
@@ -10,7 +9,6 @@ import 'services/storage_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.init();
-  await Permission.notification.request();
   try {
     await registerPeriodicCheck();
   } catch (_) {}
@@ -23,7 +21,7 @@ class UsageTrackerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '다마고치',
+      title: '타임고치',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

@@ -67,8 +67,8 @@ class _SetupScreenState extends State<SetupScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => LimitEditScreen(
-          packageName: picked.packageName ?? '',
-          appName: picked.name ?? picked.packageName ?? '',
+          packageName: picked.packageName,
+          appName: picked.name,
         ),
       ),
     );
@@ -112,7 +112,7 @@ class _SetupScreenState extends State<SetupScreen> {
         title: const Text('시작할까요?'),
         content: const Text(
           '게임이 시작되면 추적 앱과 시간을 변경할 수 없습니다.\n'
-          '다마고치가 죽어야 다시 설정할 수 있어요.',
+          '타임고치가 죽어야 다시 설정할 수 있어요.',
         ),
         actions: [
           TextButton(
@@ -129,6 +129,22 @@ class _SetupScreenState extends State<SetupScreen> {
     if (ok != true) return;
 
     final name = _nameCtrl.text.trim().isEmpty ? '미미' : _nameCtrl.text.trim();
+
+    if (!await _storage.wasGrowthTutorialShown()) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _GrowthTutorialDialog(
+          petName: name,
+          species: _species,
+        ),
+      );
+      await _storage.setGrowthTutorialShown();
+    }
+
+    if (!mounted) return;
+
     final tama = Tamagotchi.newborn(name: name, species: _species);
     await _storage.saveTamagotchi(tama);
     await _storage.setSetupComplete(true);
@@ -144,7 +160,7 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('초기 설정')),
+      appBar: AppBar(title: const Text('타임고치')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : !_hasPermission
@@ -358,6 +374,98 @@ class _SetupScreenState extends State<SetupScreen> {
           color: Colors.grey.shade800,
         ),
       );
+}
+
+class _GrowthTutorialDialog extends StatelessWidget {
+  final String petName;
+  final Species species;
+
+  const _GrowthTutorialDialog({
+    required this.petName,
+    required this.species,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('성장 안내'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '사용시간을 지키면 $petName이(가) 점점 성장해요!',
+              style: const TextStyle(fontSize: 14, height: 1.45),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                  _evoThumb('assets/sprites/${species.name}/0.png'),
+                  Icon(Icons.arrow_forward, size: 18, color: Colors.grey.shade500),
+                  _evoThumb('assets/sprites/${species.name}/1.png'),
+                  Icon(Icons.arrow_forward, size: 18, color: Colors.grey.shade500),
+                  _mysteryThumb(),
+                  Icon(Icons.arrow_forward, size: 18, color: Colors.grey.shade500),
+                  _mysteryThumb(),
+                ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('확인'),
+        ),
+      ],
+    );
+  }
+
+  Widget _evoThumb(String asset) {
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Image.asset(
+        asset,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.none,
+      ),
+    );
+  }
+
+  Widget _mysteryThumb() {
+    return Container(
+      width: 48,
+      height: 48,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.grey.shade400),
+      ),
+      child: Text(
+        '?',
+        style: TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: Colors.grey.shade600,
+        ),
+      ),
+    );
+  }
 }
 
 class _SpeciesCard extends StatelessWidget {

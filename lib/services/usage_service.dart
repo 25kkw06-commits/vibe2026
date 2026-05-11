@@ -1,5 +1,6 @@
 import 'package:usage_stats/usage_stats.dart';
 
+/// 오늘·구간 집계: [DateTime]이 기기 로컬 자정 경계와 맞춤(시스템 타임존).
 class UsageService {
   Future<bool> hasPermission() async {
     return (await UsageStats.checkUsagePermission()) ?? false;

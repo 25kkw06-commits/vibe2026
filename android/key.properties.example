@@ -1,0 +1,6 @@
+# 이 파일을 key.properties 로 복사한 뒤 값을 채우세요. key.properties·*.jks 는 Git에 올리지 마세요.
+# android 폴더 기준 상대 경로 (예: app 옆에 두면 app/../upload.jks → 아래처럼 한 단계로)
+storePassword=
+keyPassword=
+keyAlias=
+storeFile=upload-keystore.jks

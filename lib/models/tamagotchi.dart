@@ -18,6 +18,7 @@ enum Species {
 }
 
 class Tamagotchi {
+  // 날짜 스탬프( todayStamp ), 나이( ageDays )·성장: 모두 DateTime.now() = 기기 로컬 시각·타임존 기준(UTC 변환 없음).
   final String name;
   final Species species;
   final DateTime bornAt;
@@ -31,6 +32,8 @@ class Tamagotchi {
   final DateTime lastDecayAt;
   final String lastEvaluatedDate;
   final List<String> exceededTodayPackages;
+  /// 오늘 한도 초과로 sicknessCount가 오른 횟수(최대 2).
+  final int limitSickCountToday;
   final DateTime? lastFedAt;
   final DateTime? lastBathedAt;
   final DateTime? lastPlayedAt;
@@ -49,6 +52,7 @@ class Tamagotchi {
     required this.lastDecayAt,
     required this.lastEvaluatedDate,
     required this.exceededTodayPackages,
+    this.limitSickCountToday = 0,
     this.lastFedAt,
     this.lastBathedAt,
     this.lastPlayedAt,
@@ -73,6 +77,7 @@ class Tamagotchi {
       lastDecayAt: now,
       lastEvaluatedDate: _today(),
       exceededTodayPackages: const [],
+      limitSickCountToday: 0,
     );
   }
 
@@ -127,6 +132,7 @@ class Tamagotchi {
     DateTime? lastDecayAt,
     String? lastEvaluatedDate,
     List<String>? exceededTodayPackages,
+    int? limitSickCountToday,
     DateTime? lastFedAt,
     DateTime? lastBathedAt,
     DateTime? lastPlayedAt,
@@ -146,6 +152,8 @@ class Tamagotchi {
       lastEvaluatedDate: lastEvaluatedDate ?? this.lastEvaluatedDate,
       exceededTodayPackages:
           exceededTodayPackages ?? this.exceededTodayPackages,
+      limitSickCountToday: (limitSickCountToday ?? this.limitSickCountToday)
+          .clamp(0, 2),
       lastFedAt: lastFedAt ?? this.lastFedAt,
       lastBathedAt: lastBathedAt ?? this.lastBathedAt,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
@@ -166,6 +174,7 @@ class Tamagotchi {
         'lastDecayAt': lastDecayAt.toIso8601String(),
         'lastEvaluatedDate': lastEvaluatedDate,
         'exceededTodayPackages': exceededTodayPackages,
+        'limitSickCountToday': limitSickCountToday,
         'lastFedAt': lastFedAt?.toIso8601String(),
         'lastBathedAt': lastBathedAt?.toIso8601String(),
         'lastPlayedAt': lastPlayedAt?.toIso8601String(),
@@ -184,8 +193,11 @@ class Tamagotchi {
         medicineCount: m['medicineCount'] as int,
         lastDecayAt: DateTime.parse(m['lastDecayAt'] as String),
         lastEvaluatedDate: m['lastEvaluatedDate'] as String,
-        exceededTodayPackages:
-            (m['exceededTodayPackages'] as List).cast<String>(),
+        exceededTodayPackages: Tamagotchi.normalizeExceededList(
+          (m['exceededTodayPackages'] as List?) ?? const [],
+        ),
+        limitSickCountToday:
+            (m['limitSickCountToday'] as num?)?.toInt() ?? 0,
         lastFedAt: m['lastFedAt'] != null
             ? DateTime.parse(m['lastFedAt'] as String)
             : null,
@@ -197,12 +209,24 @@ class Tamagotchi {
             : null,
       );
 
+  /// 한도 초과를 이미 처리한 앱 패키지명(구 저장의 pkg|1·2는 패키지만 취한다).
+  static List<String> normalizeExceededList(List<dynamic> raw) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final e in raw.cast<String>()) {
+      final pkg = e.contains('|') ? e.split('|').first : e;
+      if (seen.add(pkg)) out.add(pkg);
+    }
+    return out;
+  }
+
   String toJson() => json.encode(toMap());
 
   factory Tamagotchi.fromJson(String s) =>
       Tamagotchi.fromMap(json.decode(s) as Map<String, dynamic>);
 
   static String _today() {
+    // 기기(로컬) 달력 기준 yyyy-MM-dd. 일일 리셋·기록 일자와 동일 기준 유지.
     final n = DateTime.now();
     return '${n.year.toString().padLeft(4, '0')}-'
         '${n.month.toString().padLeft(2, '0')}-'

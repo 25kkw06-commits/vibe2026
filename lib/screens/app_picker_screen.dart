@@ -24,9 +24,13 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
   }
 
   Future<void> _load() async {
-    final apps = await InstalledApps.getInstalledApps(true, true);
+    final apps = await InstalledApps.getInstalledApps(
+      excludeSystemApps: true,
+      excludeNonLaunchableApps: true,
+      withIcon: true,
+    );
     apps.sort((a, b) =>
-        (a.name ?? '').toLowerCase().compareTo((b.name ?? '').toLowerCase()));
+        a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
       _apps = apps;
       _filtered = apps;
@@ -40,8 +44,8 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
       _filtered = q.isEmpty
           ? _apps
           : _apps.where((a) {
-              return (a.name ?? '').toLowerCase().contains(q) ||
-                  (a.packageName ?? '').toLowerCase().contains(q);
+              return a.name.toLowerCase().contains(q) ||
+                  a.packageName.toLowerCase().contains(q);
             }).toList();
     });
   }
@@ -83,8 +87,8 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
                             ? Image.memory(Uint8List.fromList(icon),
                                 width: 40, height: 40)
                             : const Icon(Icons.android, size: 40),
-                        title: Text(a.name ?? a.packageName ?? '(알 수 없음)'),
-                        subtitle: Text(a.packageName ?? ''),
+                        title: Text(a.name),
+                        subtitle: Text(a.packageName),
                         onTap: () => Navigator.pop(context, a),
                       );
                     },
