@@ -3,7 +3,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
-import 'setup_screen.dart';
+import '../widgets/theme_mode_menu_button.dart';
 
 class SetupIntroScreen extends StatefulWidget {
   const SetupIntroScreen({super.key});
@@ -46,10 +46,7 @@ class _SetupIntroScreenState extends State<SetupIntroScreen> {
       await Permission.notification.request();
       await NotificationService.requestAndroidPostNotificationPermission();
       if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SetupScreen()),
-      );
+      Navigator.pushReplacementNamed(context, '/setup');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -58,7 +55,10 @@ class _SetupIntroScreenState extends State<SetupIntroScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('타임고치')),
+      appBar: AppBar(
+        title: const Text('타임고치'),
+        actions: const [ThemeModeMenuButton()],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
@@ -76,9 +76,11 @@ class _SetupIntroScreenState extends State<SetupIntroScreen> {
               ),
               const SizedBox(height: 20),
               const _Rule(
-                title: '잠금',
+                title: '추적 앱 · 한도',
                 desc:
-                    '한 번 정한 추적 앱과 시간 한도는 타임고치가 죽을 때까지 변경할 수 없습니다.',
+                    '게임 중에도 홈의 「추적 앱 · 사용 제한」에서 앱을 바꿀 수 있습니다. '
+                    '단, 어떤 앱이든 그날 일일 한도를 초과한 적이 있으면 그 앱의 한도(분)는 7일 동안 고정됩니다. '
+                    '추적 on/off는 그대로 바꿀 수 있어요.',
               ),
               const _Rule(
                 title: '병들기',

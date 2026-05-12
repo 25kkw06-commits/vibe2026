@@ -15,6 +15,9 @@ class StorageService {
   static const _dailyScoresKey = 'daily_happiness_scores';
   static const _cumulativeCareKey = 'cumulative_care_score';
   static const _lastFinalizedCareDayKey = 'last_finalized_care_day';
+  static const _themeModeKey = 'ui_theme_mode';
+  /// 패키지명 → ISO8601, 해당 시각까지 그 앱의 일일 한도(분) 수정 불가.
+  static const _limitEditLocksKey = 'limit_edit_locked_until';
 
   // ---------- 앱 제한 ----------
   Future<List<AppLimit>> loadLimits() async {
@@ -46,6 +49,81 @@ class StorageService {
     final limits = await loadLimits();
     limits.removeWhere((e) => e.packageName == packageName);
     await saveLimits(limits);
+    await clearLimitEditLock(packageName);
+  }
+
+  /// `system` | `light` | `dark`
+  Future<String> loadThemeModeRaw() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_themeModeKey) ?? 'system';
+  }
+
+  Future<void> saveThemeModeRaw(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    const allowed = {'system', 'light', 'dark'};
+    await prefs.setString(
+      _themeModeKey,
+      allowed.contains(mode) ? mode : 'system',
+    );
+  }
+
+  // ---------- 한도 수정 잠금 (한도 초과 감지 시 7일) ----------
+  Future<Map<String, DateTime>> _loadLimitEditLocks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_limitEditLocksKey);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final map = json.decode(raw) as Map<String, dynamic>;
+      final out = <String, DateTime>{};
+      map.forEach((k, v) {
+        final d = DateTime.tryParse(v as String? ?? '');
+        if (d != null) out[k] = d;
+      });
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _saveLimitEditLocks(Map<String, DateTime> m) async {
+    final prefs = await SharedPreferences.getInstance();
+    final enc = m.map((k, v) => MapEntry(k, v.toIso8601String()));
+    await prefs.setString(_limitEditLocksKey, json.encode(enc));
+  }
+
+  /// 그날 처음으로 한도를 넘긴 것으로 집계될 때 호출. 7일간 해당 앱의 분 한도 변경 불가.
+  Future<void> recordLimitExceededForEditLock(String packageName) async {
+    final now = DateTime.now();
+    final proposedEnd = now.add(const Duration(days: 7));
+    final locks = await _loadLimitEditLocks();
+    final prev = locks[packageName];
+    if (prev != null && prev.isAfter(proposedEnd)) return;
+    locks[packageName] = proposedEnd;
+    await _saveLimitEditLocks(locks);
+  }
+
+  /// 아직 유효하면 잠금 종료 시각, 없거나 지났으면 null.
+  Future<DateTime?> limitEditLockedUntil(String packageName) async {
+    final locks = await _loadLimitEditLocks();
+    final end = locks[packageName];
+    if (end == null || !end.isAfter(DateTime.now())) return null;
+    return end;
+  }
+
+  /// 만료되지 않은 한도 수정 잠금만 (UI 일괄 조회용).
+  Future<Map<String, DateTime>> loadActiveLimitEditLocks() async {
+    final all = await _loadLimitEditLocks();
+    final now = DateTime.now();
+    return Map.fromEntries(
+      all.entries.where((e) => e.value.isAfter(now)),
+    );
+  }
+
+  Future<void> clearLimitEditLock(String packageName) async {
+    final locks = await _loadLimitEditLocks();
+    if (!locks.containsKey(packageName)) return;
+    locks.remove(packageName);
+    await _saveLimitEditLocks(locks);
   }
 
   // ---------- 셋업 잠금 ----------
@@ -71,6 +149,7 @@ class StorageService {
     await prefs.remove(_dailyScoresKey);
     await prefs.remove(_cumulativeCareKey);
     await prefs.remove(_lastFinalizedCareDayKey);
+    await prefs.remove(_limitEditLocksKey);
   }
 
   // ---------- 다마고치 상태 ----------

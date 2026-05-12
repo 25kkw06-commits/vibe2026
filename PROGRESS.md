@@ -2,7 +2,28 @@
 
 코드·빌드 설정과 맞춰 둔 체크리스트입니다. 내용을 바꿀 때 **업데이트 날짜**만 적어 두면 됩니다.
 
-**마지막 동기화:** _(여기에 날짜)_
+**마지막 동기화:** 2026-05-12
+
+---
+
+## 여기까지 (UI·규칙·APK — 2026-05-12)
+
+- [x] **테마** — 라이트 / 다크 / 시스템(`SharedPreferences`), 인트로·셋업·홈·추적 관리 화면 AppBar에서 팔레트 메뉴. `ThemeControllerScope` + `MaterialApp` `theme`·`darkTheme`·`themeMode`
+- [x] **추적 앱 유동 변경** — 홈 AppBar **톱니** → `ManageLimitsScreen`: 앱 추가·삭제, **추적 on/off** 스위치, 한도 편집. 인트로/첫 셋업 문구를 “게임 후에도 변경 가능”으로 정리
+- [x] **한도(분) 7일 잠금** — 그날 **처음** 한도 초과로 집계될 때 `StorageService.recordLimitExceededForEditLock` → 해당 패키지는 7일간 분 한도만 수정 불가(더 긴 잠금이 있으면 유지). 목록에서 앱 제거 시 잠금 데이터도 삭제. `LimitEditScreen`에서 슬라이더·입력 비활성 + 안내
+- [x] **순환 import 정리** — `setup_screen` ↔ `tamagotchi_screen` ↔ `setup_intro` 방지: `main.dart`의 `MaterialApp.routes`에 `/setup_intro`, `/setup`, `/game` 등록 후 `pushNamed`·`pushNamedAndRemoveUntil` 사용
+- [x] **릴리스 APK 빌드** — `flutter build apk --release` 성공(프로젝트 로컬 SDK: `.flutter_sdk/flutter/bin/flutter.bat` 등). 산출: `build/app/outputs/flutter-apk/app-release.apk`, Gradle 후처리: `build/apk_named/time_gochi-release.apk`
+- [x] 빌드 직전 **누락 import** 복구(`StatBar`, `TamagotchiAvatar`, `LimitEditScreen`, `setup_screen` 등)
+
+---
+
+## 여기까지 (문서·저장소)
+
+- [x] [README.md](README.md) — 프로젝트 설명·구조·규칙 상세 정리
+- [x] 본 파일(`PROGRESS.md`) — 완료/할 일/빌드 표 형태로 정리
+- [x] 원격: [github.com/25kkw06-commits/vibe2026](https://github.com/25kkw06-commits/vibe2026) — `main` 푸시
+- [x] `.gitignore` — 로컬 경로 `.flutter_sdk/` 제외
+- [x] 커밋 메시지는 변경 요약만 두고 `Co-authored-by` 같은 trailer는 넣지 않음
 
 ---
 
@@ -35,7 +56,12 @@
 ## Android 릴리스 빌드
 
 ```text
-# Android Studio 번들 JBR 사용 권장
+# Flutter(권장): 프로젝트에 SDK 두었으면 예시
+.flutter_sdk\flutter\bin\flutter.bat build apk --release
+```
+
+```text
+# Android Studio JBR 권장 — Gradle만
 cd android
 gradlew.bat :app:assembleRelease --no-daemon
 ```
@@ -44,8 +70,9 @@ gradlew.bat :app:assembleRelease --no-daemon
 
 | 경로 | 용도 |
 |------|------|
-| `build/apk_named/time_gochi-release.apk` | 이름 고정본 |
-| `build/app/outputs/apk/release/app-release.apk` | Gradle 기본 출력 |
+| `build/apk_named/time_gochi-release.apk` | 이름 고정본(Gradle이 복사) |
+| `build/app/outputs/flutter-apk/app-release.apk` | `flutter build apk --release` 기본 출력 |
+| `build/app/outputs/apk/release/app-release.apk` | `assembleRelease`만 쓸 때 Gradle 출력 |
 
 `key.properties`가 없으면 **debug 서명**으로 나오는 release APK(베타용)입니다.
 

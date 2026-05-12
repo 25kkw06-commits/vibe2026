@@ -10,8 +10,9 @@ import '../services/tamagotchi_service.dart';
 import '../services/usage_service.dart';
 import '../widgets/stat_bar.dart';
 import '../widgets/tamagotchi_avatar.dart';
+import '../widgets/theme_mode_menu_button.dart';
+import 'manage_limits_screen.dart';
 import 'ranking_board_page.dart';
-import 'setup_intro_screen.dart';
 
 class TamagotchiScreen extends StatefulWidget {
   const TamagotchiScreen({super.key});
@@ -136,10 +137,10 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
     if (ok != true) return;
     await _storage.resetAll();
     if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
+    Navigator.pushNamedAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const SetupIntroScreen()),
-      (_) => false,
+      '/setup_intro',
+      (route) => false,
     );
   }
 
@@ -154,15 +155,28 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(_tabIndex == 0 ? t.name : '기록'),
-        actions: _tabIndex == 0
-            ? [
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: _refresh,
-                  tooltip: '새로고침',
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: '추적 앱 · 사용 제한',
+            onPressed: () async {
+              await Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ManageLimitsScreen(),
                 ),
-              ]
-            : null,
+              );
+              if (mounted) _refresh();
+            },
+          ),
+          const ThemeModeMenuButton(),
+          if (_tabIndex == 0)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _refresh,
+              tooltip: '새로고침',
+            ),
+        ],
       ),
       body: SafeArea(
         child: IndexedStack(
@@ -226,13 +240,18 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
   }
 
   Widget _statusLine(Tamagotchi t) {
+    final cs = Theme.of(context).colorScheme;
     final divider = Container(
       width: 1,
       height: 10,
-      color: Colors.grey.shade300,
+      color: cs.outlineVariant,
       margin: const EdgeInsets.symmetric(horizontal: 10),
     );
-    final base = TextStyle(fontSize: 12, color: Colors.grey.shade600);
+    final base = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: cs.onSurfaceVariant,
+          fontSize: 12,
+        ) ??
+        TextStyle(fontSize: 12, color: cs.onSurfaceVariant);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -241,7 +260,7 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
         Text(
           t.isSick ? '병중 ${t.sicknessCount}/3' : '건강 ${t.sicknessCount}/3',
           style: base.copyWith(
-            color: t.isSick ? Colors.red.shade600 : Colors.grey.shade700,
+            color: t.isSick ? cs.error : cs.onSurface,
             fontWeight: t.isSick ? FontWeight.w600 : FontWeight.w500,
           ),
         ),
@@ -268,16 +287,19 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
     }
     return Text(
       text,
-      style: TextStyle(fontSize: 14, color: Colors.grey.shade800),
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
     );
   }
 
   Widget _statsCard(Tamagotchi t) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
+        color: cs.surface,
+        border: Border.all(color: cs.outlineVariant),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -361,9 +383,10 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
     bool enabled = true,
     String? badge,
   }) {
+    final cs = Theme.of(context).colorScheme;
     final cooling = cooldownMin > 0;
     final disabled = cooling || !enabled;
-    final fg = disabled ? Colors.grey.shade400 : Colors.black87;
+    final fg = disabled ? cs.onSurface.withOpacity(0.38) : cs.onSurface;
 
     return Stack(
       children: [
@@ -371,8 +394,8 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
           onPressed: disabled ? null : onTap,
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
-            side: BorderSide(color: Colors.grey.shade300),
-            foregroundColor: Colors.black87,
+            side: BorderSide(color: cs.outlineVariant),
+            foregroundColor: cs.onSurface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
@@ -401,13 +424,13 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
               padding:
                   const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: Colors.black87,
+                color: cs.primary,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 badge,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: cs.onPrimary,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
@@ -419,12 +442,13 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
   }
 
   Widget _usagePanel() {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
+        color: cs.surface,
+        border: Border.all(color: cs.outlineVariant),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -435,14 +459,14 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 13,
-              color: Colors.grey.shade800,
+              color: cs.onSurface,
             ),
           ),
           const SizedBox(height: 12),
           if (_limits.isEmpty)
             Text(
               '추적 중인 앱이 없습니다',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
             )
           else
             ..._limits.map((l) {
@@ -451,10 +475,10 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
               final exceeded = used >= l.limitMinutes;
               final near = !exceeded && used >= l.limitMinutes * 0.8;
               final color = exceeded
-                  ? Colors.red.shade400
+                  ? cs.error
                   : near
-                      ? Colors.orange.shade600
-                      : Colors.grey.shade700;
+                      ? cs.tertiary
+                      : cs.onSurfaceVariant;
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Column(
@@ -465,7 +489,7 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
                         Expanded(
                           child: Text(
                             l.appName,
-                            style: const TextStyle(fontSize: 13),
+                            style: TextStyle(fontSize: 13, color: cs.onSurface),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -485,7 +509,7 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
                       child: LinearProgressIndicator(
                         value: ratio,
                         minHeight: 4,
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor: cs.surfaceVariant.withOpacity(0.5),
                         valueColor: AlwaysStoppedAnimation(color),
                       ),
                     ),
@@ -499,6 +523,7 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
   }
 
   Widget _buildDeath(Tamagotchi t) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -510,28 +535,31 @@ class _TamagotchiScreenState extends State<TamagotchiScreen>
               Text(
                 t.name,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               const SizedBox(height: 6),
               Text(
                 '${t.ageDays}일 동안 함께했습니다',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
               ),
               const SizedBox(height: 32),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: cs.outlineVariant),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
+                child: Text(
                   '한도 초과 3회로 사망했습니다.\n새로 설정을 시작할 수 있습니다.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, height: 1.6),
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: cs.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),

@@ -64,7 +64,7 @@ class _RankingBoardPageState extends State<RankingBoardPage> {
             '전날까지의 일일 점수를 더한 값. 오늘은 아래에만 보이고, 날이 바뀌면 누적에 들어감.',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey.shade600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.35,
             ),
           ),
@@ -73,7 +73,7 @@ class _RankingBoardPageState extends State<RankingBoardPage> {
             '같은 날 여러 번이면 그중 가장 낮은 점수만 씀. 아파 있으면 그때 측정은 0.',
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey.shade600,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               height: 1.35,
             ),
           ),
@@ -84,19 +84,23 @@ class _RankingBoardPageState extends State<RankingBoardPage> {
               child: Text(
                 '일별 기록 없음',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           else
             ..._rows.map((row) {
               final (date, score) = row;
               final isToday = date == today;
+              final cs = Theme.of(context).colorScheme;
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.grey.shade300),
+                  color: cs.surface,
+                  border: Border.all(color: cs.outlineVariant),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
@@ -104,14 +108,15 @@ class _RankingBoardPageState extends State<RankingBoardPage> {
                     Expanded(
                       child: Text(
                         isToday ? '$date (오늘)' : date,
-                        style: const TextStyle(fontSize: 13),
+                        style: TextStyle(fontSize: 13, color: cs.onSurface),
                       ),
                     ),
                     Text(
                       '$score',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
                       ),
                     ),
                   ],

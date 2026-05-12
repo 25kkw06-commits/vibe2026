@@ -80,6 +80,7 @@ class TamagotchiService {
       if (used < l.limitMinutes) continue;
       if (alreadyExceeded.contains(l.packageName)) continue;
       alreadyExceeded = {...alreadyExceeded, l.packageName};
+      await _storage.recordLimitExceededForEditLock(l.packageName);
 
       if (limitSickToday < 2) {
         limitSickToday++;

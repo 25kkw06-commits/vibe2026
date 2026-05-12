@@ -7,7 +7,7 @@ import '../services/storage_service.dart';
 import '../services/usage_service.dart';
 import 'app_picker_screen.dart';
 import 'limit_edit_screen.dart';
-import 'tamagotchi_screen.dart';
+import '../widgets/theme_mode_menu_button.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
@@ -78,6 +78,7 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _edit(AppLimit l) async {
+    final until = await _storage.limitEditLockedUntil(l.packageName);
     final result = await Navigator.push<AppLimit>(
       context,
       MaterialPageRoute(
@@ -85,6 +86,8 @@ class _SetupScreenState extends State<SetupScreen> {
           packageName: l.packageName,
           appName: l.appName,
           initialMinutes: l.limitMinutes,
+          initialEnabled: l.enabled,
+          limitEditLockedUntil: until,
         ),
       ),
     );
@@ -111,8 +114,10 @@ class _SetupScreenState extends State<SetupScreen> {
       builder: (_) => AlertDialog(
         title: const Text('시작할까요?'),
         content: const Text(
-          '게임이 시작되면 추적 앱과 시간을 변경할 수 없습니다.\n'
-          '타임고치가 죽어야 다시 설정할 수 있어요.',
+          '게임이 시작되면 홈의 「추적 앱 · 사용 제한」에서 '
+          '앱을 추가·삭제하고 추적 on/off를 바꿀 수 있습니다.\n\n'
+          '다만 어떤 앱이든 일일 한도를 초과한 날이 있으면, '
+          '그 앱의 한도(분)는 7일 동안 바꿀 수 없습니다.',
         ),
         actions: [
           TextButton(
@@ -150,17 +155,16 @@ class _SetupScreenState extends State<SetupScreen> {
     await _storage.setSetupComplete(true);
 
     if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const TamagotchiScreen()),
-      (_) => false,
-    );
+    Navigator.pushNamedAndRemoveUntil(context, '/game', (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('타임고치')),
+      appBar: AppBar(
+        title: const Text('타임고치'),
+        actions: const [ThemeModeMenuButton()],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : !_hasPermission

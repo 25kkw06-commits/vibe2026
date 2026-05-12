@@ -16,18 +16,23 @@ class StatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final v = value.clamp(0, 100);
     final bad = reverseGood ? v >= 70 : v <= 30;
-    final color = bad ? Colors.red.shade400 : Colors.grey.shade800;
+    final barColor = bad ? cs.error : cs.primary;
+    final labelColor = cs.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Colors.grey.shade700),
+          Icon(icon, size: 16, color: labelColor),
           const SizedBox(width: 10),
           SizedBox(
             width: 48,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: cs.onSurface),
+            ),
           ),
           Expanded(
             child: ClipRRect(
@@ -35,8 +40,8 @@ class StatBar extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: v / 100,
                 minHeight: 5,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation(color),
+                backgroundColor: cs.surfaceVariant.withOpacity(0.5),
+                valueColor: AlwaysStoppedAnimation(barColor),
               ),
             ),
           ),
@@ -46,7 +51,7 @@ class StatBar extends StatelessWidget {
             child: Text(
               '$v',
               textAlign: TextAlign.right,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 11, color: labelColor),
             ),
           ),
         ],
