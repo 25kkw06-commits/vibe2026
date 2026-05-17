@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:installed_apps/app_info.dart';
 
-import '../models/app_limit.dart';
-import '../services/storage_service.dart';
-import '../services/usage_service.dart';
+import '../../models/app_limit.dart';
+import '../../services/storage_service.dart';
+import '../../services/usage_service.dart';
 import 'app_picker_screen.dart';
 import 'limit_edit_screen.dart';
-import '../widgets/theme_mode_menu_button.dart';
+import '../../widgets/theme_mode_menu_button.dart';
 
-/// 게임 중 추적 앱·한도·추적 on/off 관리. 한도(분)는 초과 이력이 있으면 7일 잠금.
+/// 추적 앱·한도. 넘긴 적 있으면 그 앱 한도 7일 잠금.
 class ManageLimitsScreen extends StatefulWidget {
   const ManageLimitsScreen({super.key});
 
@@ -76,6 +76,7 @@ class _ManageLimitsScreenState extends State<ManageLimitsScreen> {
 
   Future<void> _edit(AppLimit l) async {
     final until = await _storage.limitEditLockedUntil(l.packageName);
+    if (!mounted) return;
     final result = await Navigator.push<AppLimit>(
       context,
       MaterialPageRoute(
@@ -135,7 +136,7 @@ class _ManageLimitsScreenState extends State<ManageLimitsScreen> {
               children: [
                 if (!_hasPerm)
                   Material(
-                    color: cs.errorContainer.withOpacity(0.35),
+                    color: cs.errorContainer.withValues(alpha: 0.35),
                     child: ListTile(
                       dense: true,
                       title: const Text('사용 정보 접근 권한이 필요합니다'),

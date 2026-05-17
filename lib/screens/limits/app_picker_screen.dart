@@ -29,8 +29,7 @@ class _AppPickerScreenState extends State<AppPickerScreen> {
       excludeNonLaunchableApps: true,
       withIcon: true,
     );
-    apps.sort((a, b) =>
-        a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    apps.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     setState(() {
       _apps = apps;
       _filtered = apps;

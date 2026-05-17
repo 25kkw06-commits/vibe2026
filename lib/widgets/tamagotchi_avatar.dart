@@ -4,7 +4,8 @@ import '../models/tamagotchi.dart';
 class TamagotchiAvatar extends StatefulWidget {
   final Tamagotchi tama;
   final double size;
-  /// 부모가 상호작용 성공 시마다 증가시키면 짧은 좌우 흔들림이 재생됩니다.
+
+  /// interactTick 올리면 짧게 흔들림.
   final int interactTick;
   const TamagotchiAvatar({
     super.key,
@@ -74,8 +75,7 @@ class _TamagotchiAvatarState extends State<TamagotchiAvatar>
         _tapBounceCtrl.reset();
       }
     }
-    if (widget.tama.isAlive &&
-        widget.interactTick != oldWidget.interactTick) {
+    if (widget.tama.isAlive && widget.interactTick != oldWidget.interactTick) {
       _wiggleCtrl.forward(from: 0);
     }
   }
@@ -92,7 +92,9 @@ class _TamagotchiAvatarState extends State<TamagotchiAvatar>
   Widget build(BuildContext context) {
     final t = widget.tama;
     final dead = !t.isAlive;
-    final box = widget.size + 40;
+    // 알 단계(0)는 스프라이트가 작게 보여 원형 테두리 여백이 커 보임 → 링만 살짝 축소.
+    final ringExtra = t.stageIndex == 0 ? 24.0 : 40.0;
+    final box = widget.size + ringExtra;
 
     Widget sprite = Image.asset(
       t.spriteAsset,
@@ -106,10 +108,26 @@ class _TamagotchiAvatarState extends State<TamagotchiAvatar>
         opacity: 0.68,
         child: ColorFiltered(
           colorFilter: const ColorFilter.matrix(<double>[
-            0.2126, 0.7152, 0.0722, 0, 0,
-            0.2126, 0.7152, 0.0722, 0, 0,
-            0.2126, 0.7152, 0.0722, 0, 0,
-            0,      0,      0,      0.38, 0,
+            0.2126,
+            0.7152,
+            0.0722,
+            0,
+            0,
+            0.2126,
+            0.7152,
+            0.0722,
+            0,
+            0,
+            0.2126,
+            0.7152,
+            0.0722,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.38,
+            0,
           ]),
           child: sprite,
         ),
@@ -141,9 +159,7 @@ class _TamagotchiAvatarState extends State<TamagotchiAvatar>
               },
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: dead
-                    ? null
-                    : () => _tapBounceCtrl.forward(from: 0),
+                onTap: dead ? null : () => _tapBounceCtrl.forward(from: 0),
                 child: sprite,
               ),
             ),

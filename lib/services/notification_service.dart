@@ -8,12 +8,13 @@ class NotificationService {
 
   static Future<void> init() async {
     if (_initialized) return;
-    const android = AndroidInitializationSettings('@drawable/ic_launcher_timegotchi');
+    const android =
+        AndroidInitializationSettings('@drawable/ic_launcher_timegotchi');
     await _plugin.initialize(const InitializationSettings(android: android));
     _initialized = true;
   }
 
-  /// 앱 시작·인트로 이후 한 번 호출해 알림 권한을 요청할 때 사용.
+  /// 인트로 지나서 알림 권한 한 번 요청할 때.
   static Future<void> requestAndroidPostNotificationPermission() async {
     await _plugin
         .resolvePlatformSpecificImplementation<
@@ -21,7 +22,7 @@ class NotificationService {
         ?.requestNotificationsPermission();
   }
 
-  /// 스탯 악화·병 등 (연속 알림 방지: 한 전환에서 한 번씩)
+  /// 스탯 나빠짐·병 등. 전환당 알림 한 번.
   static Future<void> notifyCareTransition(
     Tamagotchi before,
     Tamagotchi after,
@@ -44,7 +45,7 @@ class NotificationService {
       await _plugin.show(
         91002,
         '배고파해요',
-        '${after.name}에게 먹이를 주세요',
+        '${after.name}에게 사료를 주세요',
         details,
       );
     }
@@ -52,7 +53,7 @@ class NotificationService {
       await _plugin.show(
         91003,
         '더러워졌어요',
-        '${after.name}에게 목욕을 시켜 주세요',
+        '${after.name}에게 비누로 씻겨 주세요',
         details,
       );
     }
@@ -60,7 +61,7 @@ class NotificationService {
       await _plugin.show(
         91004,
         '우울해요',
-        '${after.name}와 놀아 주세요',
+        '${after.name}와 장난감으로 놀아 주세요',
         details,
       );
     }
@@ -84,14 +85,14 @@ class NotificationService {
     );
     await _plugin.show(
       appName.hashCode & 0x7fffffff,
-      '⏰ $appName 사용 제한 도달',
-      '제한 $limitMinutes분 / 오늘 $usedMinutes분 사용\n'
-          '$tamaName이(가) 한도 초과로 병에 걸렸어요',
+      '$appName 한도 도달',
+      '제한 $limitMinutes분 / 오늘 $usedMinutes분\n'
+          '$tamaName 한도 초과 병',
       details,
     );
   }
 
-  /// 한도 초과이나 오늘 병(누적 카운트)은 이미 2번까지 반영됨.
+  /// 오늘 한도 병은 이미 2번까지 반영된 뒤.
   static Future<void> showLimitReachedDayCapped({
     required String appName,
     required int limitMinutes,
@@ -109,11 +110,16 @@ class NotificationService {
     );
     await _plugin.show(
       ('cap_$appName').hashCode & 0x7fffffff,
-      '⏰ $appName 한도 초과',
+      '$appName 한도 초과',
       '제한 $limitMinutes분 / 오늘 $usedMinutes분\n'
-          '오늘 이 한도로 쌓이는 병은 최대 2번까지예요',
+          '오늘 병 카운트는 최대 2번',
       details,
     );
+  }
+
+  static Future<void> cancelAllNotifications() async {
+    await init();
+    await _plugin.cancelAll();
   }
 
   static Future<void> showActionReady({
@@ -126,7 +132,7 @@ class NotificationService {
       android: AndroidNotificationDetails(
         'action_ready_channel',
         '돌봄 행동 가능',
-        channelDescription: '먹이·목욕·놀이를 할 수 있을 때',
+        channelDescription: '사료·비누·장난감이 준비됐을 때 알림',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
@@ -134,14 +140,14 @@ class NotificationService {
       ),
     );
     final id = switch (label) {
-      '먹이' => 92011,
-      '목욕' => 92012,
-      '놀기' => 92013,
+      '사료' => 92011,
+      '비누' => 92012,
+      '장난감' => 92013,
       _ => 92019,
     };
     await _plugin.show(
       id,
-      '$label 가능 · $tamaName',
+      '$tamaName · $label',
       body,
       details,
     );
@@ -163,8 +169,8 @@ class NotificationService {
     );
     await _plugin.show(
       ('warn_$appName').hashCode & 0x7fffffff,
-      '⚠️ $appName 사용시간 $remainingMinutes분 남음',
-      '곧 제한 시간에 도달합니다',
+      '$appName · $remainingMinutes분 남음',
+      '한도 임박',
       details,
     );
   }

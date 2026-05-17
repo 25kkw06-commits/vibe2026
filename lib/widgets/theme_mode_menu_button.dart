@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme_controller_scope.dart';
+import '../core/theme_controller_scope.dart';
 
 class ThemeModeMenuButton extends StatelessWidget {
   const ThemeModeMenuButton({super.key});

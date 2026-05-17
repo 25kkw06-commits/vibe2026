@@ -18,13 +18,13 @@ enum Species {
 }
 
 class Tamagotchi {
-  // 날짜 스탬프( todayStamp ), 나이( ageDays )·성장: 모두 DateTime.now() = 기기 로컬 시각·타임존 기준(UTC 변환 없음).
+  // 스탬프·나이·성장: 전부 DateTime.now() 로컬(UTC 강제 없음).
   final String name;
   final Species species;
   final DateTime bornAt;
-  final int hunger;        // 0=포만, 100=굶주림
-  final int cleanliness;   // 0=더러움, 100=깨끗
-  final int happiness;     // 0=우울, 100=행복
+  final int hunger; // 0=포만, 100=굶주림
+  final int cleanliness; // 0=더러움, 100=깨끗
+  final int happiness; // 0=우울, 100=행복
   final int sicknessCount;
   final bool isSick;
   final bool isAlive;
@@ -32,8 +32,15 @@ class Tamagotchi {
   final DateTime lastDecayAt;
   final String lastEvaluatedDate;
   final List<String> exceededTodayPackages;
-  /// 오늘 한도 초과로 sicknessCount가 오른 횟수(최대 2).
+
+  /// 오늘 한도로 올린 병 횟수(상한 2).
   final int limitSickCountToday;
+
+  /// 자정마다 방치 연속일. TamagotchiService가 갱신.
+  final int severeNeglectStreakDays;
+
+  /// 방치면 true, 한도/병이면 false.
+  final bool diedFromNeglect;
   final DateTime? lastFedAt;
   final DateTime? lastBathedAt;
   final DateTime? lastPlayedAt;
@@ -53,6 +60,8 @@ class Tamagotchi {
     required this.lastEvaluatedDate,
     required this.exceededTodayPackages,
     this.limitSickCountToday = 0,
+    this.severeNeglectStreakDays = 0,
+    this.diedFromNeglect = false,
     this.lastFedAt,
     this.lastBathedAt,
     this.lastPlayedAt,
@@ -78,6 +87,8 @@ class Tamagotchi {
       lastEvaluatedDate: _today(),
       exceededTodayPackages: const [],
       limitSickCountToday: 0,
+      severeNeglectStreakDays: 0,
+      diedFromNeglect: false,
     );
   }
 
@@ -88,7 +99,7 @@ class Tamagotchi {
     return ((h + cleanliness + happiness) / 3).round();
   }
 
-  /// 스프라이트 단계 인덱스 (0=알, 1=아기, 2=청소년, 3=어른)
+  /// 0=알 … 3=어른
   int get stageIndex {
     if (ageDays < 1) return 0;
     if (ageDays < 7) return 1;
@@ -108,7 +119,7 @@ class Tamagotchi {
     return '어른';
   }
 
-  /// 현재 부정적 상태 (sick/hungry/dirty/sad). 없으면 null.
+  /// sick/hungry/dirty/sad. 없으면 null.
   String? get statusBadge {
     if (!isAlive) return null;
     if (isSick) return 'sick';
@@ -133,6 +144,8 @@ class Tamagotchi {
     String? lastEvaluatedDate,
     List<String>? exceededTodayPackages,
     int? limitSickCountToday,
+    int? severeNeglectStreakDays,
+    bool? diedFromNeglect,
     DateTime? lastFedAt,
     DateTime? lastBathedAt,
     DateTime? lastPlayedAt,
@@ -152,8 +165,12 @@ class Tamagotchi {
       lastEvaluatedDate: lastEvaluatedDate ?? this.lastEvaluatedDate,
       exceededTodayPackages:
           exceededTodayPackages ?? this.exceededTodayPackages,
-      limitSickCountToday: (limitSickCountToday ?? this.limitSickCountToday)
-          .clamp(0, 2),
+      limitSickCountToday:
+          (limitSickCountToday ?? this.limitSickCountToday).clamp(0, 2),
+      severeNeglectStreakDays:
+          (severeNeglectStreakDays ?? this.severeNeglectStreakDays)
+              .clamp(0, 999),
+      diedFromNeglect: diedFromNeglect ?? this.diedFromNeglect,
       lastFedAt: lastFedAt ?? this.lastFedAt,
       lastBathedAt: lastBathedAt ?? this.lastBathedAt,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
@@ -175,6 +192,8 @@ class Tamagotchi {
         'lastEvaluatedDate': lastEvaluatedDate,
         'exceededTodayPackages': exceededTodayPackages,
         'limitSickCountToday': limitSickCountToday,
+        'severeNeglectStreakDays': severeNeglectStreakDays,
+        'diedFromNeglect': diedFromNeglect,
         'lastFedAt': lastFedAt?.toIso8601String(),
         'lastBathedAt': lastBathedAt?.toIso8601String(),
         'lastPlayedAt': lastPlayedAt?.toIso8601String(),
@@ -196,8 +215,10 @@ class Tamagotchi {
         exceededTodayPackages: Tamagotchi.normalizeExceededList(
           (m['exceededTodayPackages'] as List?) ?? const [],
         ),
-        limitSickCountToday:
-            (m['limitSickCountToday'] as num?)?.toInt() ?? 0,
+        limitSickCountToday: (m['limitSickCountToday'] as num?)?.toInt() ?? 0,
+        severeNeglectStreakDays:
+            (m['severeNeglectStreakDays'] as num?)?.toInt() ?? 0,
+        diedFromNeglect: m['diedFromNeglect'] as bool? ?? false,
         lastFedAt: m['lastFedAt'] != null
             ? DateTime.parse(m['lastFedAt'] as String)
             : null,
@@ -209,7 +230,7 @@ class Tamagotchi {
             : null,
       );
 
-  /// 한도 초과를 이미 처리한 앱 패키지명(구 저장의 pkg|1·2는 패키지만 취한다).
+  /// 한도 처리한 패키지. 옛 저장(key|1)은 패키지만 씀.
   static List<String> normalizeExceededList(List<dynamic> raw) {
     final seen = <String>{};
     final out = <String>[];
@@ -226,7 +247,7 @@ class Tamagotchi {
       Tamagotchi.fromMap(json.decode(s) as Map<String, dynamic>);
 
   static String _today() {
-    // 기기(로컬) 달력 기준 yyyy-MM-dd. 일일 리셋·기록 일자와 동일 기준 유지.
+    // 로컬 달력 yyyy-MM-dd. 마감이랑 맞춤.
     final n = DateTime.now();
     return '${n.year.toString().padLeft(4, '0')}-'
         '${n.month.toString().padLeft(2, '0')}-'

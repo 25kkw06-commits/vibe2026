@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'theme_controller_scope.dart';
-import 'screens/setup_intro_screen.dart';
-import 'screens/setup_screen.dart';
-import 'screens/tamagotchi_screen.dart';
+import 'core/theme_controller_scope.dart';
+import 'screens/onboarding/setup_intro_screen.dart';
+import 'screens/onboarding/setup_screen.dart';
+import 'screens/home/tamagotchi_screen.dart';
 import 'services/background_worker.dart';
 import 'services/notification_service.dart';
 import 'services/storage_service.dart';
@@ -125,8 +125,7 @@ class _UsageTrackerAppState extends State<UsageTrackerApp> {
   }
 }
 
-/// 셋업 완료 여부와 다마고치 생존 여부를 보고
-/// 셋업 인트로 / 다마고치 화면으로 분기한다.
+/// 셋업 됐는지·펫 살았는지 보고 인트로 vs 게임으로 갈림.
 class _RootDispatcher extends StatefulWidget {
   const _RootDispatcher();
 

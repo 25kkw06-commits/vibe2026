@@ -4,7 +4,7 @@ import 'storage_service.dart';
 import 'usage_service.dart';
 import 'notification_service.dart';
 
-/// 액션 결과. 성공이면 새 다마고치, 실패면 사유와 기존 다마고치.
+/// 성공 시 tama, 실패 시 error.
 class ActionResult {
   final Tamagotchi tama;
   final String? error;
@@ -13,38 +13,74 @@ class ActionResult {
   bool get success => error == null;
 }
 
-/// 한도·치료제·날짜 갱신: [DateTime.now]·[Tamagotchi.todayStamp] = 기기 로컬 달력 기준.
+/// 날짜·한도는 전부 기기 로컬.
 class TamagotchiService {
   final StorageService _storage;
   final UsageService _usage;
 
-  // 돌보기 액션 제한치 (쿨타임 동안 자연 감쇠가 체감되도록 길게)
-  static const feedCooldownMin = 180; // 3시간 · 배고픔 약 +21
-  static const batheCooldownMin = 240; // 4시간
-  static const playCooldownMin = 180; // 3시간
   static const feedHungerMin = 22; // 이 미만이면 안 먹음
   static const batheCleanMax = 80; // 이 초과면 안 씻음
   static const playHappyMax = 85; // 이 초과면 안 놂
+
+  /// 자정 마감 시 이 스탬프면 방치 일수 +1.
+  static const severeNeglectMinHunger = 95;
+  static const severeNeglectMaxCleanliness = 5;
+
+  /// 이 일수 연속이면 방치 사망.
+  static const severeNeglectDaysToDie = 3;
+
+  static bool isSevereNeglectState(Tamagotchi t) {
+    if (!t.isAlive) return false;
+    return t.hunger >= severeNeglectMinHunger &&
+        t.cleanliness <= severeNeglectMaxCleanliness;
+  }
+
+  // 알림 문구용 이름
+
+  static const careItemFeed = '사료';
+  static const careItemBathe = '비누';
+  static const careItemPlay = '장난감';
 
   TamagotchiService({StorageService? storage, UsageService? usage})
       : _storage = storage ?? StorageService(),
         _usage = usage ?? UsageService();
 
-  /// 시간 경과에 따른 스탯 자연 감쇠.
-  /// 1시간당: 배고픔 +7, 청결 -4, 행복 -5 (3h 쿨타임 시 배고픔 +21 전후)
-  Tamagotchi applyDecay(Tamagotchi t) {
+  // 시간당 배고픔+7 청결-4, 행복은 배고픔/청결에 따라 더 깎임. 병 중 행복 0.
+  Tamagotchi applyDecay(Tamagotchi t) => applyDecayUpTo(t, DateTime.now());
+
+  /// 마감일 끝 시각까지 감쇠 (end > lastDecayAt).
+  Tamagotchi applyDecayUpTo(Tamagotchi t, DateTime end) {
     if (!t.isAlive) return t;
-    final now = DateTime.now();
-    final hours = now.difference(t.lastDecayAt).inMinutes / 60.0;
+    final hours = end.difference(t.lastDecayAt).inMinutes / 60.0;
     if (hours <= 0) return t;
+
     final hungerInc = (hours * 7).round();
     final cleanDec = (hours * 4).round();
-    final happyDec = (hours * 5).round();
+
+    final newHunger = (t.hunger + hungerInc).clamp(0, 100);
+    final newClean = (t.cleanliness - cleanDec).clamp(0, 100);
+
+    final sick = t.isSick;
+    // 포만·깨끗할수록 기본 우울 감쇠 완화 + 소폭 회복 (병 중에는 회복량만 조금 낮춤)
+    final wellCared = newHunger <= 42 && newClean >= 58;
+    final baseHappyDec = (hours * (wellCared ? 3.0 : 5.0)).round();
+    final careBump = wellCared ? ((sick ? 1.5 : 2.5) * hours).round() : 0;
+
+    final hn = newHunger / 100.0;
+    final cn = (100 - newClean) / 100.0;
+    var stressDec = ((hn * 6.0 + cn * 6.0) * hours).round();
+    if (sick) {
+      stressDec += (hours * 1.2).round();
+    }
+
+    var newHappy = t.happiness - baseHappyDec - stressDec + careBump;
+    newHappy = newHappy.clamp(0, 100);
+
     return t.copyWith(
-      hunger: t.hunger + hungerInc,
-      cleanliness: t.cleanliness - cleanDec,
-      happiness: t.happiness - happyDec,
-      lastDecayAt: now,
+      hunger: newHunger,
+      cleanliness: newClean,
+      happiness: newHappy,
+      lastDecayAt: end,
     );
   }
 
@@ -89,8 +125,9 @@ class TamagotchiService {
           limitSickCountToday: limitSickToday,
           sicknessCount: newCount,
           isSick: true,
-          happiness: current.happiness - 15,
+          happiness: 0,
           isAlive: newCount < 3,
+          diedFromNeglect: false,
           exceededTodayPackages: alreadyExceeded.toList(),
         );
         try {
@@ -119,7 +156,7 @@ class TamagotchiService {
     return current;
   }
 
-  /// 어제(자정~자정) 동안 켜 둔 **모든** 추적 앱이 각 한도를 넘기지 않았으면 치료제 1개.
+  /// 어제 하루 추적 앱 전부 한도 안 넘었으면 약 +1.
   Future<bool> _medicineEligibleFromYesterday(List<AppLimit> limits) async {
     final tracked =
         limits.where((l) => l.enabled && l.limitMinutes > 0).toList();
@@ -141,108 +178,116 @@ class TamagotchiService {
     }
   }
 
-  // ---------- 쿨다운 헬퍼 ----------
-  int cooldownRemaining(DateTime? last, int cooldownMin) {
-    if (last == null) return 0;
-    final passed = DateTime.now().difference(last).inMinutes;
-    return passed >= cooldownMin ? 0 : cooldownMin - passed;
-  }
+  (bool feed, bool bathe, bool play) actionButtonsEnabled(Tamagotchi t) =>
+      careActionsEnabled(t);
 
-  /// 메인 화면 버튼과 동일 기준으로 활성 여부 (먹이·목욕·놀기).
-  (bool feed, bool bathe, bool play) actionButtonsEnabled(Tamagotchi t) {
+  /// 재고 있어야 누름. 보급은 StorageService.processCareItemRegen.
+  (bool feed, bool bathe, bool play) careActionsEnabled(
+    Tamagotchi t, {
+    int shopFeed = 0,
+    int shopSoap = 0,
+    int shopToy = 0,
+  }) {
     if (!t.isAlive) return (false, false, false);
-    final feedCool = cooldownRemaining(t.lastFedAt, feedCooldownMin) > 0;
-    final batheCool = cooldownRemaining(t.lastBathedAt, batheCooldownMin) > 0;
-    final playCool = cooldownRemaining(t.lastPlayedAt, playCooldownMin) > 0;
     return (
-      !feedCool && t.hunger >= feedHungerMin,
-      !batheCool && t.cleanliness <= batheCleanMax,
-      !playCool && t.happiness <= playHappyMax,
+      shopFeed > 0 && t.hunger >= feedHungerMin,
+      shopSoap > 0 && t.cleanliness <= batheCleanMax,
+      shopToy > 0 && t.happiness <= playHappyMax,
     );
   }
 
-  /// 사용자 액션 직후 스냅샷만 맞춤 (잘못된 '방금 활성화' 알림 방지).
-  Future<void> syncActionButtonSnapshot(StorageService storage, Tamagotchi t) async {
-    final n = actionButtonsEnabled(t);
+  /// 액션 후 알림용 버튼 상태 스냅샷.
+  Future<void> syncActionButtonSnapshot(
+      StorageService storage, Tamagotchi t) async {
+    final shop = await storage.loadShopCareStocks();
+    final n = careActionsEnabled(
+      t,
+      shopFeed: shop.$1,
+      shopSoap: shop.$2,
+      shopToy: shop.$3,
+    );
     await storage.saveActionEnabledSnap(n.$1, n.$2, n.$3);
   }
 
-  /// 이전 스냅샷 대비 버튼이 막 풀렸을 때 알림.
+  /// 재고 생겨서 버튼 풀리면 알림.
   Future<void> checkNotifyActionButtonsAvailable(
     StorageService storage,
     Tamagotchi t,
   ) async {
     if (!t.isAlive) return;
+    final shop = await storage.loadShopCareStocks();
     final prev = await storage.loadActionEnabledSnap();
-    final now = actionButtonsEnabled(t);
+    final now = careActionsEnabled(
+      t,
+      shopFeed: shop.$1,
+      shopSoap: shop.$2,
+      shopToy: shop.$3,
+    );
     await storage.saveActionEnabledSnap(now.$1, now.$2, now.$3);
     if (prev == null) return;
     final (pf, pb, pp) = prev;
     if (!pf && now.$1) {
       await NotificationService.showActionReady(
         tamaName: t.name,
-        label: '먹이',
-        body: '먹이를 줄 수 있어요',
+        label: careItemFeed,
+        body: '사료 줄 수 있음',
       );
     }
     if (!pb && now.$2) {
       await NotificationService.showActionReady(
         tamaName: t.name,
-        label: '목욕',
-        body: '목욕을 시킬 수 있어요',
+        label: careItemBathe,
+        body: '씻길 수 있음',
       );
     }
     if (!pp && now.$3) {
       await NotificationService.showActionReady(
         tamaName: t.name,
-        label: '놀기',
-        body: '같이 놀아 줄 수 있어요',
+        label: careItemPlay,
+        body: '놀아 줄 수 있음',
       );
     }
   }
 
   // ---------- 액션 ----------
 
-  ActionResult feed(Tamagotchi t) {
+  Future<ActionResult> tryFeed(Tamagotchi t) async {
     if (!t.isAlive) return ActionResult.fail(t, '돌볼 수 없어요');
     if (t.hunger < feedHungerMin) {
-      return ActionResult.fail(t, '아직 배고프지 않아요');
+      return ActionResult.fail(t, '배가 안 고파요');
     }
-    final cool = cooldownRemaining(t.lastFedAt, feedCooldownMin);
-    if (cool > 0) return ActionResult.fail(t, '$cool분 뒤 다시 줄 수 있어요');
+    final ok = await _storage.tryConsumeShopFeedStock();
+    if (!ok) return ActionResult.fail(t, '사료가 없어요');
     return ActionResult.ok(t.copyWith(
       hunger: t.hunger - 30,
       happiness: t.happiness + 5,
-      lastFedAt: DateTime.now(),
     ));
   }
 
-  ActionResult bathe(Tamagotchi t) {
+  Future<ActionResult> tryBathe(Tamagotchi t) async {
     if (!t.isAlive) return ActionResult.fail(t, '돌볼 수 없어요');
     if (t.cleanliness > batheCleanMax) {
       return ActionResult.fail(t, '이미 깨끗해요');
     }
-    final cool = cooldownRemaining(t.lastBathedAt, batheCooldownMin);
-    if (cool > 0) return ActionResult.fail(t, '$cool분 뒤 다시 씻길 수 있어요');
+    final ok = await _storage.tryConsumeShopSoapStock();
+    if (!ok) return ActionResult.fail(t, '비누가 없어요');
     return ActionResult.ok(t.copyWith(
       cleanliness: t.cleanliness + 40,
       happiness: t.happiness + 3,
-      lastBathedAt: DateTime.now(),
     ));
   }
 
-  ActionResult play(Tamagotchi t) {
+  Future<ActionResult> tryPlay(Tamagotchi t) async {
     if (!t.isAlive) return ActionResult.fail(t, '돌볼 수 없어요');
     if (t.happiness > playHappyMax) {
-      return ActionResult.fail(t, '이미 충분히 즐거워요');
+      return ActionResult.fail(t, '기분이 이미 좋아요');
     }
-    final cool = cooldownRemaining(t.lastPlayedAt, playCooldownMin);
-    if (cool > 0) return ActionResult.fail(t, '$cool분 뒤 다시 놀 수 있어요');
+    final ok = await _storage.tryConsumeShopToyStock();
+    if (!ok) return ActionResult.fail(t, '장난감이 없어요');
     return ActionResult.ok(t.copyWith(
       happiness: t.happiness + 35,
       hunger: t.hunger + 5,
       cleanliness: t.cleanliness - 5,
-      lastPlayedAt: DateTime.now(),
     ));
   }
 

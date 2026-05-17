@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
-        android:label="타임고치"
+        android:label="@string/app_label"
         android:name="${applicationName}"
         android:icon="@drawable/ic_launcher_timegotchi"
         android:roundIcon="@drawable/ic_launcher_timegotchi">

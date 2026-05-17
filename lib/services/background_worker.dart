@@ -17,16 +17,17 @@ void backgroundDispatcher() {
   });
 }
 
-/// 백그라운드/포그라운드 어디서든 호출 가능한 평가 사이클.
-/// 다마고치 상태를 불러와 평가 → 저장한다. 시각·일자는 기기 로컬 기준.
+/// 백·포그 같은 평가 한 바퀴. 로드→평가→저장. 시각은 로컬.
 Future<void> runEvaluationCycle() async {
   final storage = StorageService();
+  await storage.processCareItemRegen();
   final svc = TamagotchiService(storage: storage);
 
   final t = await storage.loadTamagotchi();
   if (t == null || !t.isAlive) return;
 
-  var next = svc.applyDecay(t);
+  var next = await DailyScoreService.advanceThroughClosedDaysAndDecayToNow(
+      svc, storage, t);
   await NotificationService.notifyCareTransition(t, next);
   final prev = next;
   next = await svc.evaluateUsage(next);
@@ -37,7 +38,6 @@ Future<void> runEvaluationCycle() async {
     await storage.saveActionEnabledSnap(false, false, false);
   }
   await storage.saveTamagotchi(next);
-  await DailyScoreService.recordSnapshot(storage, next);
 }
 
 Future<void> registerPeriodicCheck() async {

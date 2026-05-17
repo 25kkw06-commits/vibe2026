@@ -40,6 +40,19 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "mode"
+    productFlavors {
+        create("prod") {
+            dimension = "mode"
+        }
+        create("admin") {
+            dimension = "mode"
+            applicationIdSuffix = ".admin"
+            versionNameSuffix = "-admin"
+            resValue("string", "app_label", "타임고치 관리자")
+        }
+    }
+
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
             create("release") {
@@ -74,21 +87,41 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
+// Flutter CLI 산출 APK는 (Flutter 루트)/build/app/outputs/flutter-apk 에 둔다.
+// :app 의 layout.buildDirectory( android/app/build ) 와 다르므로 루트 기준 경로로 복사한다.
+val flutterApkOutDir = rootProject.projectDir.parentFile.resolve("build/app/outputs/flutter-apk")
+
 // Flutter 기본 산출물은 app-release.apk 라서 이름이 안 바뀐 것처럼 보임.
 // release 조립이 끝나면 프로젝트 build/ 에 고정 파일명으로 복사한다.
 val exportTimeGochiApk =
     tasks.register<Copy>("exportTimeGochiApk") {
-        dependsOn("assembleRelease")
         group = "build"
         description =
-            "assembleRelease 산출 APK를 (프로젝트 루트)/build/apk_named/time_gochi-release.apk 로 복사"
-        from(layout.buildDirectory.dir("outputs/apk/release")) {
-            include("*.apk")
-            rename(".*\\.apk", "time_gochi-release.apk")
+            "assembleProdRelease 산출 APK를 (프로젝트 루트)/build/apk_named/time_gochi-release.apk 로 복사"
+        from(flutterApkOutDir) {
+            include("app-prod-release.apk")
+            rename("app-prod-release.apk", "time_gochi-release.apk")
+        }
+        into(rootProject.projectDir.parentFile.resolve("build/apk_named"))
+    }
+
+val exportTimeGochiAdminApk =
+    tasks.register<Copy>("exportTimeGochiAdminApk") {
+        group = "build"
+        description =
+            "assembleAdminRelease 산출 APK를 (프로젝트 루트)/build/apk_named/time_gochi-admin-release.apk 로 복사"
+        from(flutterApkOutDir) {
+            include("app-admin-release.apk")
+            rename("app-admin-release.apk", "time_gochi-admin-release.apk")
         }
         into(rootProject.projectDir.parentFile.resolve("build/apk_named"))
     }
 
 afterEvaluate {
-    tasks.named("assembleRelease").configure { finalizedBy(exportTimeGochiApk) }
+    tasks.matching { it.name == "assembleProdRelease" }.configureEach {
+        finalizedBy(exportTimeGochiApk)
+    }
+    tasks.matching { it.name == "assembleAdminRelease" }.configureEach {
+        finalizedBy(exportTimeGochiAdminApk)
+    }
 }

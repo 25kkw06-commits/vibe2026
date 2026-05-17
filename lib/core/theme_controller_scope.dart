@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// [UsageTrackerApp]이 제공. 자식에서 테마 변경 시
-/// `ThemeControllerScope.of(context).setThemeModeRaw('dark')`
-/// (`system` | `light` | `dark`)
+/// UsageTrackerApp이 감싸 줌. setThemeModeRaw('dark'|'light'|'system').
 class ThemeControllerScope extends InheritedWidget {
   const ThemeControllerScope({
     super.key,

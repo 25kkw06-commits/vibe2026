@@ -1,51 +1,96 @@
 import '../models/tamagotchi.dart';
 import 'storage_service.dart';
+import 'tamagotchi_service.dart';
 
-/// 하루 동안의 '돌봄 점수'(0~100). 그날 측정값 중 가장 낮은 것만 저장한다.
-/// 날짜가 바뀌면 전날 점수가 [StorageService.finalizePastDaysIntoCumulative]로 누적된다.
-/// 스냅샷 일자는 [Tamagotchi.todayStamp] = 기기 로컬 날짜.
+/// 하루 점수(0~100) = 그날 마감 때 행복도. 직접 입력은 없음.
+/// 날짜가 비었으면 첫 평가 때 하루씩 감쇠 돌려서 채우고 30일 리스트에 붙임.
+/// 30일 찼으면 주기 완주(크레딧·초기화 예약), 그날은 더 안 이어감.
 class DailyScoreService {
   DailyScoreService._();
 
-  /// 아픔·사망 → 0. 배고픔·청결·행복이 기준을 넘기면 감점(누적).
   static int scoreFor(Tamagotchi t) {
     if (!t.isAlive) return 0;
-    if (t.isSick) return 0;
-    var s = 100;
-    if (t.hunger >= 85) {
-      s -= 45;
-    } else if (t.hunger >= 75) {
-      s -= 32;
-    } else if (t.hunger >= 65) {
-      s -= 20;
-    } else if (t.hunger >= 55) {
-      s -= 10;
-    }
-    if (t.cleanliness <= 20) {
-      s -= 45;
-    } else if (t.cleanliness <= 35) {
-      s -= 32;
-    } else if (t.cleanliness <= 50) {
-      s -= 18;
-    } else if (t.cleanliness <= 62) {
-      s -= 8;
-    }
-    if (t.happiness <= 20) {
-      s -= 45;
-    } else if (t.happiness <= 38) {
-      s -= 30;
-    } else if (t.happiness <= 52) {
-      s -= 16;
-    } else if (t.happiness <= 62) {
-      s -= 7;
-    }
-    return s.clamp(0, 100);
+    return t.happiness.clamp(0, 100);
   }
 
-  static Future<void> recordSnapshot(StorageService storage, Tamagotchi t) async {
+  static String _calendarStamp(DateTime d) {
+    return '${d.year.toString().padLeft(4, '0')}-'
+        '${d.month.toString().padLeft(2, '0')}-'
+        '${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 마감 안 된 날은 자정까지 감쇠·로그 찍고, 마지막에 지금까지 한 번 더.
+  /// 앱 안 켠 날도 같은 식으로 마감 행복도가 남음.
+  static Future<Tamagotchi> advanceThroughClosedDaysAndDecayToNow(
+    TamagotchiService tamSvc,
+    StorageService storage,
+    Tamagotchi loaded,
+  ) async {
+    await storage.ensureDailyScoreCursorInitialized();
+    final today = Tamagotchi.todayStamp();
+    final yesterday = _calendarStamp(
+      DateTime.parse(today).subtract(const Duration(days: 1)),
+    );
+    final lastClosed = await storage.loadLastDailyScoreClosedDay();
+    if (lastClosed == null) {
+      return tamSvc.applyDecay(loaded);
+    }
+    if (lastClosed.compareTo(yesterday) >= 0) {
+      return tamSvc.applyDecay(loaded);
+    }
+
     await storage.finalizePastDaysIntoCumulative();
-    final day = Tamagotchi.todayStamp();
-    final v = scoreFor(t);
-    await storage.mergeDailyMinScore(day, v);
+
+    var work = loaded;
+    var cursor = _calendarStamp(
+      DateTime.parse(lastClosed).add(const Duration(days: 1)),
+    );
+
+    while (cursor.compareTo(yesterday) <= 0 && work.isAlive) {
+      final dayStart = DateTime.parse(cursor);
+      final endOfDay = DateTime(dayStart.year, dayStart.month, dayStart.day)
+          .add(const Duration(days: 1));
+
+      work = tamSvc.applyDecayUpTo(work, endOfDay);
+
+      final v = scoreFor(work);
+      await storage.mergeDailyMinScore(cursor, v);
+      final cycleJustCompleted = await storage.appendRankingCycleDayScore(v);
+
+      var streak = work.severeNeglectStreakDays;
+      if (TamagotchiService.isSevereNeglectState(work)) {
+        streak++;
+      } else {
+        streak = 0;
+      }
+
+      if (streak >= TamagotchiService.severeNeglectDaysToDie) {
+        work = work.copyWith(
+          isAlive: false,
+          happiness: 0,
+          severeNeglectStreakDays: 0,
+          diedFromNeglect: true,
+        );
+      } else {
+        work = work.copyWith(severeNeglectStreakDays: streak);
+      }
+
+      await storage.setLastDailyScoreClosedDay(cursor);
+
+      if (!work.isAlive) {
+        return work;
+      }
+
+      if (cycleJustCompleted) {
+        return tamSvc.applyDecay(work);
+      }
+
+      cursor = _calendarStamp(
+        DateTime.parse(cursor).add(const Duration(days: 1)),
+      );
+    }
+
+    if (!work.isAlive) return work;
+    return tamSvc.applyDecay(work);
   }
 }
